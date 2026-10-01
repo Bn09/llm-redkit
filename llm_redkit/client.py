@@ -41,3 +41,19 @@ class LLMClient:
                        json=payload, headers=headers)
             r.raise_for_status()
             return r.json()
+
+    def chat_raw(self, messages, tools=None):
+        payload = {"model": self.model, "messages": messages}
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + self.api_key,
+            **self.extra_headers,
+        }
+        with httpx.Client(timeout=self.timeout) as c:
+            r = c.post(self.base_url + "/chat/completions",
+                       json=payload, headers=headers)
+            r.raise_for_status()
+            return r.json()
