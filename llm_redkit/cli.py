@@ -1,13 +1,3 @@
-p.add_argument("--config", required=True)
-p.add_argument("--config", default=None)
-    if args.clear_cache:
-        from .cache import ResponseCache
-        n = ResponseCache().clear()
-        console.print("[green]cleared " + str(n) + " cache entries[/green]")
-        sys.exit(0)
-
-    if not args.config:
-        p.error("--config is required unless --clear-cache is used")
 import sys
 import os
 import json
@@ -186,7 +176,7 @@ def _rag(client, system, table):
 
 def main():
     p = argparse.ArgumentParser("redkit")
-    p.add_argument("--config", required=True)
+    p.add_argument("--config", default=None)
     p.add_argument("--out", default="report.html")
     p.add_argument("--json", default=None)
     p.add_argument("--pdf", default=None)
@@ -198,14 +188,17 @@ def main():
     p.add_argument("--clear-cache", action="store_true")
     args = p.parse_args()
 
-    if args.no_cache:
-        os.environ["REDKIT_NO_CACHE"] = "1"
-
     if args.clear_cache:
         from .cache import ResponseCache
         n = ResponseCache().clear()
         console.print("[green]cleared " + str(n) + " cache entries[/green]")
         sys.exit(0)
+
+    if not args.config:
+        p.error("--config is required (or use --clear-cache)")
+
+    if args.no_cache:
+        os.environ["REDKIT_NO_CACHE"] = "1"
 
     cfg = load_config(args.config)
     client = LLMClient(cfg["base_url"], cfg.get("api_key"),
