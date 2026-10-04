@@ -1,4 +1,10 @@
-import httpx, os
+from .cache import ResponseCacheself.cache = ResponseCache(enabled=(os.environ.get("REDKIT_NO_CACHE") != "1"))
+self.last_cached = Falsecached = self.cache.get(self.base_url, self.model, prompt, system)
+if cached is not None:
+    self.last_cached = True
+    return cached
+self.last_cached = Falseself.cache.set(self.base_url, self.model, prompt, system, reply)
+return replyimport httpx, os
 from typing import Optional
 
 class LLMClient:

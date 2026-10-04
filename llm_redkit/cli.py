@@ -1,4 +1,17 @@
-import sys
+p.add_argument("--runs", type=int, default=1,
+               help="Run each attack N times to compute consistency")
+p.add_argument("--no-cache", action="store_true",
+               help="Disable response cache")
+p.add_argument("--clear-cache", action="store_true",
+               help="Clear cache and exit")if args.no_cache:
+    import os
+    os.environ["REDKIT_NO_CACHE"] = "1"
+
+if args.clear_cache:
+    from .cache import ResponseCache
+    n = ResponseCache().clear()
+    console.print(f"[green]cleared {n} cache entries[/green]")
+    sys.exit(0)import sys
 import json
 import yaml
 import argparse
