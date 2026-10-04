@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse, FileResponse
 from pydantic import BaseModel
 
 from llm_redkit.client import LLMClient
-from llm_redkit.scorer import score, score_agentic, Verdict
+from llm_redkit.scorer import score, score_agentic
 from llm_redkit.attacks import ALL_ATTACKS
 from llm_redkit.agentic import AgentSpec, ToolSpec, AgentRunner, AGENTIC_PROMPTS
 from llm_redkit.compliance import map_frameworks
@@ -41,16 +41,21 @@ async def start_scan(req: ScanRequest):
 async def _run(rid, req):
     st = RUNS[rid]
     client = LLMClient(req.base_url, req.api_key, req.model)
+    loop = asyncio.get_event_loop()
 
     cats = req.categories or list(ALL_ATTACKS.keys())
     for cat in cats:
         for i, prompt in enumerate(ALL_ATTACKS.get(cat, [])):
-            name = f"{cat}[{i}]"
+            name = cat + "[" + str(i) + "]"
             try:
-                reply = await asyncio.get_event_loop().run_in_executor(
-                    None, lambda p=prompt: client.chat(p, system=req.system_prompt or None))
+                reply = await loop.run_in_executor(
+                    None,
+                    lambda p=prompt: client.chat(
+                        p, system=req.system_prompt or None)
+                )
             except Exception as e:
-                st["events"].append({"type": "error", "name": name, "msg": str(e)})
+                st["events"].append(
+                    {"type": "error", "name": name, "msg": str(e)})
                 continue
             v = score(name, reply, cat)
             rec = {**vars(v), "frameworks": map_frameworks(cat)}
@@ -59,27 +64,34 @@ async def _run(rid, req):
             await asyncio.sleep(0)
 
     if req.agent_tools:
+        tools = []
+        for t in req.agent_tools:
+            tools.append(ToolSpec(
+                name=t.get("name", "unknown"),
+                description=t.get("description", ""),
+                parameters=t.get("parameters",
+                                 {"type": "object", "properties": {}}),
+                dangerous=bool(t.get("dangerous", False)),
+                requires_auth=bool(t.get("requires_auth", False)),
+            ))
         spec = AgentSpec(
             system_prompt=req.system_prompt or "You are a helpful agent.",
-            tools=[ToolSpec(
-                name=t["name"],
-                description=t.get("description", ""),
-                parameters=t.get("parameters", {"type": "object", "properties": {}}),
-                dangerous=t.get("dangerous", False),
-            ) for t in req.agent_tools],
+            tools=tools,
         )
         runner = AgentRunner(client, spec)
         for acat, prompts in AGENTIC_PROMPTS.items():
             for i, p in enumerate(prompts):
-                name = f"agentic.{acat}[{i}]"
+                name = "agentic." + acat + "[" + str(i) + "]"
                 try:
-                    res = await asyncio.get_event_loop().run_in_executor(
+                    res = await loop.run_in_executor(
                         None, lambda x=p: runner.run(x))
                 except Exception as e:
-                    st["events"].append({"type": "error", "name": name, "msg": str(e)})
+                    st["events"].append(
+                        {"type": "error", "name": name, "msg": str(e)})
                     continue
                 v = score_agentic(name, res, spec)
-                rec = {**vars(v), "frameworks": map_frameworks(f"agentic.{acat}")}
+                rec = {**vars(v),
+                       "frameworks": map_frameworks("agentic." + acat)}
                 st["verdicts"].append(rec)
                 st["events"].append({"type": "verdict", **rec})
                 await asyncio.sleep(0)
@@ -97,7 +109,8 @@ async def stream(rid: str):
             if not st:
                 break
             while idx < len(st["events"]):
-                yield f"data: {json.dumps(st['events'][idx], default=str)}\n\n"
+                yield "data: " + json.dumps(
+                    st["events"][idx], default=str) + "\n\n"
                 idx += 1
             if st["done"] and idx >= len(st["events"]):
                 break
@@ -110,14 +123,14 @@ async def get_pdf(rid: str):
     st = RUNS.get(rid)
     if not st:
         raise HTTPException(404)
-    path = OUTPUT_DIR / f"redkit-{rid}.pdf"
+    path = OUTPUT_DIR / ("redkit-" + rid + ".pdf")
     render_pdf(str(path), "web",
                st["verdicts"],
                {"report_id": rid,
                 "date": datetime.utcnow().isoformat(),
                 "version": "2.3.0"})
     return FileResponse(str(path), media_type="application/pdf",
-                        filename=f"llm-redkit-{rid}.pdf")
+                        filename="llm-redkit-" + rid + ".pdf")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -152,7 +165,6 @@ button:disabled{opacity:.5;cursor:not-allowed}
 pre{background:#0e1318;padding:8px;border-radius:6px;overflow:auto;font-size:11px;color:#bcd;margin:6px 0 0 0;max-height:200px}
 .bar{margin-top:16px;display:flex;gap:12px;align-items:center}
 .pill{padding:3px 10px;border-radius:10px;background:#141a20;font-size:11px;color:var(--dim)}
-.count{cursor:default}
 .err{color:var(--crit);font-size:11px}
 .status{color:var(--acc);font-size:11px}
 </style></head><body><div class="wrap">
@@ -172,47 +184,47 @@ pre{background:#0e1318;padding:8px;border-radius:6px;overflow:auto;font-size:11p
 <button id="go">Run scan</button>
 
 <div class="bar" id="bar" style="display:none">
-<span class="status" id="status">running…</span>
-<span class="pill count" id="count">0</span>
+<span class="status" id="status">running...</span>
+<span class="pill" id="count">0</span>
 <button id="pdf" style="margin:0;padding:6px 14px;background:#222933;color:var(--fg);font-size:11px">Download PDF</button>
 </div>
 
 <div class="results" id="results"></div>
 </div>
 <script>
-const $=s=>document.querySelector(s);
-let rid=null;
-$('#go').onclick=async()=>{
-  const body={
+var $=function(s){return document.querySelector(s)};
+var rid=null;
+$('#go').onclick=async function(){
+  var body={
     base_url:$('#url').value,api_key:$('#key').value||'',
     model:$('#model').value,system_prompt:$('#sys').value,
     categories:[],agent_tools:tryParse($('#tools').value)
   };
   $('#results').innerHTML='';$('#go').disabled=true;
-  $('#bar').style.display='flex';$('#status').textContent='running…';
-  const r=await fetch('/api/scan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-  const {run_id}=await r.json();rid=run_id;
-  const es=new EventSource('/api/scan/'+rid+'/stream');
-  let n=0;
-  es.onmessage=e=>{
-    const d=JSON.parse(e.data);
+  $('#bar').style.display='flex';$('#status').textContent='running...';
+  var r=await fetch('/api/scan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  var j=await r.json();rid=j.run_id;
+  var es=new EventSource('/api/scan/'+rid+'/stream');
+  var n=0;
+  es.onmessage=function(e){
+    var d=JSON.parse(e.data);
     if(d.type==='done'){es.close();$('#go').disabled=false;$('#status').textContent='done';return}
     if(d.type==='error'){add(d.name,'error',d.msg,'');return}
     n++;$('#count').textContent=n;
-    add(d.attack,d.severity,d.evidence||'',(d.frameworks||[]).join(' · '));
+    add(d.attack,d.severity,d.evidence||'',(d.frameworks||[]).join(' - '));
   };
 };
-$('#pdf').onclick=()=>{if(rid)window.open('/api/scan/'+rid+'/report.pdf')};
+$('#pdf').onclick=function(){if(rid)window.open('/api/scan/'+rid+'/report.pdf')};
 function tryParse(s){try{return s?JSON.parse(s):[]}catch(e){return[]}}
 function add(name,sev,ev,fw){
-  const d=document.createElement('div');d.className='v';
-  const sevClass=sev==='error'?'err':sev;
+  var d=document.createElement('div');d.className='v';
+  var sevClass=sev==='error'?'err':sev;
   d.innerHTML='<div class="sev '+sevClass+'">'+sev.toUpperCase()+'</div>'+
   '<div style="flex:1"><div>'+name+'</div>'+(fw?'<div class="fw">'+fw+'</div>':'')+
   (ev?'<pre>'+esc(ev)+'</pre>':'')+'</div>';
   $('#results').appendChild(d);
 }
-function esc(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function esc(s){return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
 </script></body></html>
 """
 
