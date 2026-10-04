@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llm-redkit"
-version = "1.0.0"
-description = "Automated red-team harness for LLM applications"
+version = "2.2.0"
+description = "Agentic red-team harness for LLM applications"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27",
@@ -13,10 +13,13 @@ dependencies = [
     "rich>=13.7",
     "jinja2>=3.1",
     "pydantic>=2.6",
+    "reportlab>=4.0",
 ]
 
 [project.scripts]
 redkit = "llm_redkit.cli:main"
 
 [tool.setuptools]
-packages = ["llm_redkit"]
+packages = ["llm_redkit", "llm_redkit.agentic", "llm_redkit.agentic.providers",
+            "llm_redkit.multiturn", "llm_redkit.rag", "llm_redkit.compliance",
+            "llm_redkit.plugins", "llm_redkit.attacks"]
