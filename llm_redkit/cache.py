@@ -1,14 +1,13 @@
 import hashlib
 import json
 from pathlib import Path
-
-CACHE_DIR = Path.home() / ".cache" / "llm-redkit"
+from .platform_utils import get_cache_dir
 
 
 class ResponseCache:
     def __init__(self, enabled=True, path=None):
         self.enabled = enabled
-        self.dir = Path(path) if path else CACHE_DIR
+        self.dir = Path(path) if path else get_cache_dir()
         if self.enabled:
             self.dir.mkdir(parents=True, exist_ok=True)
 
