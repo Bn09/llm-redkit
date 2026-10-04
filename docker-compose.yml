@@ -1,0 +1,43 @@
+services:
+  redkit:
+    build: .
+    image: llm-redkit:2.2
+    container_name: redkit
+    volumes:
+      - ./output:/work/output
+      - ./examples:/work/examples:ro
+      - redkit-cache:/home/redkit/.cache/llm-redkit
+    environment:
+      - REDKIT_API_KEY=${REDKIT_API_KEY:-}
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      --config /work/examples/config.yaml
+      --out /work/output/report.html
+      --json /work/output/findings.json
+      --pdf /work/output/report.pdf
+      --audit /work/output/audit.jsonl
+    profiles: ["local"]
+
+  redkit-real-agent:
+    build: .
+    image: llm-redkit:2.2
+    container_name: redkit-real-agent
+    volumes:
+      - ./output:/work/output
+      - ./examples:/work/examples:ro
+      - redkit-cache:/home/redkit/.cache/llm-redkit
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - REDKIT_API_KEY=${REDKIT_API_KEY:-}
+    command: >
+      --config /work/examples/config-real-agent.yaml
+      --out /work/output/real-agent-report.html
+      --json /work/output/real-agent-findings.json
+      --pdf /work/output/real-agent-report.pdf
+    profiles: ["agent"]
+
+volumes:
+  redkit-cache:
