@@ -68,3 +68,34 @@ class AgentRunner:
                     "args": tc["function"]["arguments"],
                 })
         return out
+
+
+class RealAgentRunner:
+    """Wraps a real agent provider (OpenAI Assistants, LangServe, etc.)
+    and normalizes its output to match AgentRunner's shape."""
+
+    def __init__(self, provider, dangerous_tools=None):
+        self.provider = provider
+        self.dangerous_tools = set(dangerous_tools or [])
+
+    def run(self, message):
+        try:
+            result = self.provider.run(message)
+        except Exception as e:
+            return {"final": None, "trace": [],
+                    "tools_called": [], "error": str(e)}
+        called = []
+        for tc in result.get("tool_calls", []):
+            if isinstance(tc, dict):
+                name = tc.get("name")
+                args = tc.get("args")
+            else:
+                name = getattr(tc, "tool", None)
+                args = getattr(tc, "tool_input", None)
+            called.append({"name": name, "args": args})
+        return {
+            "final": result.get("final"),
+            "trace": [],
+            "tools_called": called,
+            "status": result.get("status"),
+        }
