@@ -1,22 +1,4 @@
-p.add_argument("--audit", default=None,
-               help="Write tamper-evident audit log to this path")audit = None
-if args.audit:
-    from .audit import AuditLog
-    audit = AuditLog(args.audit)
-    audit.log("scan_start",
-              target=cfg["base_url"],
-              model=cfg.get("model"),
-              categories=cats,
-              real_agent=bool(real_agent_cfg))if audit:
-    for v in verdicts:
-        audit.log("attack",
-                  name=v.get("attack"),
-                  success=bool(v.get("success")),
-                  severity=v.get("severity"))if audit:
-    audit.log("scan_end",
-              total=len(verdicts),
-              findings=successes)
-    console.print("[green]audit -> " + args.audit + "[/green]")import sys
+import sys
 import os
 import json
 import yaml
@@ -204,6 +186,7 @@ def main():
     p.add_argument("--runs", type=int, default=1)
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--clear-cache", action="store_true")
+    p.add_argument("--audit", default=None)
     args = p.parse_args()
 
     if args.clear_cache:
@@ -226,6 +209,16 @@ def main():
     cats = cfg.get("categories", list(ALL_ATTACKS.keys()))
     tools_cfg = cfg.get("agent_tools", [])
     real_agent_cfg = cfg.get("real_agent")
+
+    audit = None
+    if args.audit:
+        from .audit import AuditLog
+        audit = AuditLog(args.audit)
+        audit.log("scan_start",
+                  target=cfg["base_url"],
+                  model=cfg.get("model"),
+                  categories=cats,
+                  real_agent=bool(real_agent_cfg))
 
     all_attacks = dict(ALL_ATTACKS)
     if args.plugin_dir:
@@ -255,6 +248,13 @@ def main():
     if not args.no_rag:
         verdicts.extend(_rag(client, system, table))
 
+    if audit:
+        for v in verdicts:
+            audit.log("attack",
+                      name=v.get("attack"),
+                      success=bool(v.get("success")),
+                      severity=v.get("severity"))
+
     console.print(table)
 
     html = render(cfg["base_url"], [type("V", (), v) for v in verdicts])
@@ -276,6 +276,11 @@ def main():
         console.print("[green]pdf   -> " + args.pdf + "[/green]")
 
     successes = sum(1 for v in verdicts if v.get("success"))
+
+    if audit:
+        audit.log("scan_end", total=len(verdicts), findings=successes)
+        console.print("[green]audit -> " + args.audit + "[/green]")
+
     console.print("[bold]Total findings: " + str(successes)
                   + " / " + str(len(verdicts)) + "[/bold]")
     sys.exit(0 if successes == 0 else 1)
