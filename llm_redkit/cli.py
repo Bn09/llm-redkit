@@ -1,17 +1,5 @@
-p.add_argument("--runs", type=int, default=1,
-               help="Run each attack N times to compute consistency")
-p.add_argument("--no-cache", action="store_true",
-               help="Disable response cache")
-p.add_argument("--clear-cache", action="store_true",
-               help="Clear cache and exit")if args.no_cache:
-    import os
-    os.environ["REDKIT_NO_CACHE"] = "1"
-
-if args.clear_cache:
-    from .cache import ResponseCache
-    n = ResponseCache().clear()
-    console.print(f"[green]cleared {n} cache entries[/green]")
-    sys.exit(0)import sys
+import sys
+import os
 import json
 import yaml
 import argparse
@@ -195,7 +183,19 @@ def main():
     p.add_argument("--plugin-dir", default=None)
     p.add_argument("--no-multiturn", action="store_true")
     p.add_argument("--no-rag", action="store_true")
+    p.add_argument("--runs", type=int, default=1)
+    p.add_argument("--no-cache", action="store_true")
+    p.add_argument("--clear-cache", action="store_true")
     args = p.parse_args()
+
+    if args.no_cache:
+        os.environ["REDKIT_NO_CACHE"] = "1"
+
+    if args.clear_cache:
+        from .cache import ResponseCache
+        n = ResponseCache().clear()
+        console.print("[green]cleared " + str(n) + " cache entries[/green]")
+        sys.exit(0)
 
     cfg = load_config(args.config)
     client = LLMClient(cfg["base_url"], cfg.get("api_key"),
@@ -219,22 +219,18 @@ def main():
 
     verdicts = []
 
-    # 1. static attacks
     if cats:
         verdicts.extend(_static_attacks(client, system, cats,
                                         all_attacks, table))
 
-    # 2. agentic
     if real_agent_cfg and tools_cfg:
         verdicts.extend(_real_agent(real_agent_cfg, tools_cfg, table))
     elif tools_cfg:
         verdicts.extend(_mock_agent(client, system, tools_cfg, table))
 
-    # 3. multiturn
     if not args.no_multiturn:
         verdicts.extend(_multiturn(client, cfg, system, table))
 
-    # 4. rag
     if not args.no_rag:
         verdicts.extend(_rag(client, system, table))
 
@@ -254,7 +250,7 @@ def main():
         render_pdf(args.pdf, cfg["base_url"], verdicts, {
             "report_id": datetime.utcnow().strftime("%Y%m%d-%H%M%S"),
             "date": datetime.utcnow().isoformat(),
-            "version": "2.0.0",
+            "version": "2.1.0",
         })
         console.print("[green]pdf   -> " + args.pdf + "[/green]")
 
