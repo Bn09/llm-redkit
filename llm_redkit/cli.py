@@ -1,4 +1,22 @@
-import sys
+p.add_argument("--audit", default=None,
+               help="Write tamper-evident audit log to this path")audit = None
+if args.audit:
+    from .audit import AuditLog
+    audit = AuditLog(args.audit)
+    audit.log("scan_start",
+              target=cfg["base_url"],
+              model=cfg.get("model"),
+              categories=cats,
+              real_agent=bool(real_agent_cfg))if audit:
+    for v in verdicts:
+        audit.log("attack",
+                  name=v.get("attack"),
+                  success=bool(v.get("success")),
+                  severity=v.get("severity"))if audit:
+    audit.log("scan_end",
+              total=len(verdicts),
+              findings=successes)
+    console.print("[green]audit -> " + args.audit + "[/green]")import sys
 import os
 import json
 import yaml
