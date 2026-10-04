@@ -109,3 +109,22 @@ Commercial. See LICENSE.
 ## Support
 
 Email. Reply within 48h. Refund within 7 days.
+
+## Screenshots
+
+### Web UI — live streaming scan
+
+![Web UI](docs/screenshots/web-ui.png)
+
+### PDF Report — findings with severity
+
+![PDF page 1](docs/screenshots/pdf-page1.png)
+![PDF page 2](docs/screenshots/pdf-page2.png)
+
+### CLI — redkit in terminal
+
+![CLI](docs/screenshots/cli.png)
+
+### GitHub repo
+
+![GitHub](docs/screenshots/github-repo.png)
