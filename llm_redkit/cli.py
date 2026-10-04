@@ -1,3 +1,13 @@
+p.add_argument("--config", required=True)
+p.add_argument("--config", default=None)
+    if args.clear_cache:
+        from .cache import ResponseCache
+        n = ResponseCache().clear()
+        console.print("[green]cleared " + str(n) + " cache entries[/green]")
+        sys.exit(0)
+
+    if not args.config:
+        p.error("--config is required unless --clear-cache is used")
 import sys
 import os
 import json
